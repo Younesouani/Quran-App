@@ -1,0 +1,12 @@
+{"_e":"root:init","_t":1784767352377,"format":"v0-jsonl","version":"57.0.10"}
+{"_e":"env:mode","_t":1784767352381,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1784767352401,"mode":"development","files":[],"env":{}}
+{"_e":"devserver:start","_t":1784767353977,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../../../app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1784767356776,"serverRoot":"../../..","projectRoot":"../../..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:server_log","_t":1784767357582,"level":"error","data":["An unknown error occurred while installing React Native DevTools. Details:\n\nCannot read properties of undefined (reading 'arm64')"]}
+{"_e":"expo:dev-tools-plugin:load","_t":1784767358423,"plugins":[]}
+{"_e":"metro:instantiate","_t":1784767376141,"atlas":false,"workers":6,"host":"::","port":8081}
+{"_e":"metro:client_log","_t":1784767605505,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
+{"_e":"metro:client_log","_t":1784767617204,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
+{"_e":"metro:client_log","_t":1784767636633,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
+{"_e":"metro:client_log","_t":1784767640831,"level":"error","data":["Project is incompatible with this version of Expo Go\n\nThis project requires a newer version of Expo Go.\n\nHow to fix this error:\nDownload the latest version of Expo Go from the Play Store."]}
