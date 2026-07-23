@@ -17,8 +17,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0B192C"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.fzzhraaa.quranapp"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7ba85015-820a-4c3a-92d9-158e8f66337f"
       }
     }
   }
 }
-
