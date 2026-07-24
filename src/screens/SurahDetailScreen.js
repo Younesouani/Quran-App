@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,15 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSurahDetails } from '../api/quranApi';
-import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
-// تحويل الأرقام الإنجليزية إلى أرقام عربية مشرقية (١، ٢، ٣)
+// Convert numbers to Eastern Arabic numerals
 const toArabicDigits = (num) => {
   const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return num.toString().replace(/\d/g, (digit) => arabicDigits[digit]);
 };
 
-// مكون شارة رقم الآية المزخرفة
+// Ayah number badge component
 const AyahBadge = ({ number, isDarkMode }) => {
   return (
     <View style={badgeStyles.badgeContainer}>
@@ -39,34 +39,47 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
+  
+  const playerRef = useRef(null);
 
-  // تنسيق رقم السورة مع أصفار في البداية (1 -> 001)
+  // Format surah number to 3 digits (e.g. 1 -> 001)
   const formattedSurahNumber = String(surahNumber).padStart(3, '0');
   const audioUrl = `https://server8.mp3quran.net/basit/${formattedSurahNumber}.mp3`;
 
-  // مشغل الصوت من expo-audio
-  const player = useAudioPlayer(audioUrl);
-
   useEffect(() => {
-    // تهيئة إعدادات الصوت في النظام
-    const setupAudio = async () => {
+    let isMounted = true;
+
+    const initAudio = async () => {
       try {
         await setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
           shouldDuckAndroid: true,
         });
-      } catch (e) {
-        console.log('Audio mode setup error:', e);
+
+        // Initialize audio player with direct URI
+        const player = createAudioPlayer({ uri: audioUrl });
+        playerRef.current = player;
+
+        // Add event listeners for playback state
+        player.addListener('playbackStatusUpdate', (status) => {
+          if (!isMounted) return;
+          setIsPlaying(status.isPlaying);
+          setIsBuffering(status.isBuffering);
+        });
+      } catch (err) {
+        console.error('Audio initialization error:', err);
       }
     };
 
-    setupAudio();
+    initAudio();
     loadSurahDetails();
 
     return () => {
-      if (player) {
-        player.pause();
+      isMounted = false;
+      if (playerRef.current) {
+        playerRef.current.release();
+        playerRef.current = null;
       }
     };
   }, [surahNumber]);
@@ -86,21 +99,20 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   };
 
   const playSurahAudio = async () => {
+    if (!playerRef.current) return;
+
     try {
       if (isPlaying) {
-        player.pause();
-        setIsPlaying(false);
+        playerRef.current.pause();
       } else {
         setIsBuffering(true);
-        player.play();
-        setIsPlaying(true);
-        setIsBuffering(false);
+        playerRef.current.play();
       }
     } catch (error) {
       setIsBuffering(false);
       setIsPlaying(false);
-      Alert.alert('خطأ', 'تعذر تحميل الصوت. تأكد من الاتصال بالإنترنت.');
-      console.error('Audio error:', error);
+      Alert.alert('خطأ', 'تعذر تشغيل الصوت. تأكد من الاتصال بالإنترنت.');
+      console.error('Audio playback error:', error);
     }
   };
 
@@ -136,7 +148,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* هيدر الشاشة */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={[styles.backText, { color: theme.backBtn }]}>🔙 عودة</Text>
@@ -146,7 +158,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         </Text>
       </View>
 
-      {/* كرت مشغل الصوت */}
+      {/* Audio Card */}
       <View style={[styles.audioCard, { backgroundColor: theme.cardBg }]}>
         <View style={styles.audioInfo}>
           <Text style={[styles.reciterName, { color: theme.text }]}>
@@ -159,7 +171,6 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         <TouchableOpacity
           style={[styles.playButton, { backgroundColor: theme.accent }]}
           onPress={playSurahAudio}
-          disabled={isBuffering}
         >
           {isBuffering ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -171,7 +182,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         </TouchableOpacity>
       </View>
 
-      {/* عرض الآيات */}
+      {/* Verses ScrollView */}
       <ScrollView contentContainerStyle={styles.ayaScrollContent}>
         <View style={[styles.surahContent, { backgroundColor: theme.cardBg }]}>
           <View style={styles.ayaContainer}>
