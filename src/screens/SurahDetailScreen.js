@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSurahDetails } from '../api/quranApi';
-import * as Audio from 'expo-audio';
+import { useAudioPlayer } from 'expo-audio';
 
 // تحويل الأرقام الإنجليزية إلى أرقام عربية مشرقية (١، ٢، ٣)
 const toArabicDigits = (num) => {
@@ -18,7 +18,7 @@ const toArabicDigits = (num) => {
   return num.toString().replace(/\d/g, (digit) => arabicDigits[digit]);
 };
 
-// مكون شارة رقم الآية المزخرفة بطريقة ممتدة ومضبوطة
+// مكون شارة رقم الآية المزخرفة
 const AyahBadge = ({ number, isDarkMode }) => {
   return (
     <View style={badgeStyles.badgeContainer}>
@@ -37,16 +37,17 @@ const AyahBadge = ({ number, isDarkMode }) => {
 export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   const [surah, setSurah] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sound, setSound] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // تنسيق رقم السورة مع أصفار في البداية (مثلاً 1 يصبح 001)
+  const formattedSurahNumber = String(surahNumber).padStart(3, '0');
+  const audioUrl = `https://server8.mp3quran.net/basit/${formattedSurahNumber}.mp3`;
+
+  // مشغل الصوت من expo-audio
+  const player = useAudioPlayer(audioUrl);
 
   useEffect(() => {
     loadSurahDetails();
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, [surahNumber]);
 
   const loadSurahDetails = async () => {
@@ -64,29 +65,15 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   };
 
   const playSurahAudio = async () => {
-    if (!surah || !surah.number) return;
-
     try {
       if (isPlaying) {
-        await sound.stopAsync();
+        player.pause();
         setIsPlaying(false);
-        return;
+      } else {
+        player.play();
+        setIsPlaying(true);
       }
-
-      setLoading(true);
-      if (sound) {
-        await sound.unloadAsync();
-      }
-      const audioUrl = `https://download.quranicaudio.com/qdc/abdul_basit/murattal/${surah.number}.mp3`;
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioUrl },
-        { shouldPlay: true }
-      );
-      setSound(newSound);
-      setIsPlaying(true);
-      setLoading(false);
     } catch (error) {
-      setLoading(false);
       Alert.alert('خطأ', 'تعذر تحميل الصوت. تأكد من الاتصال بالإنترنت.');
       console.error('Audio error:', error);
     }
@@ -144,21 +131,17 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
             تلاوة السورة كاملة
           </Text>
         </View>
-        <TouchableOpacity 
-          style={[styles.playButton, { backgroundColor: theme.accent }]} 
+        <TouchableOpacity
+          style={[styles.playButton, { backgroundColor: theme.accent }]}
           onPress={playSurahAudio}
         >
-          {loading && !surah ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <Text style={styles.playButtonText}>
-              {isPlaying ? '⏹️ إيقاف' : '▶️ تشغيل'}
-            </Text>
-          )}
+          <Text style={styles.playButtonText}>
+            {isPlaying ? '⏹️ إيقاف' : '▶️ تشغيل'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* عرض الآيات متتابعة وبزخرفة إسلامية مضبوطة */}
+      {/* عرض الآيات */}
       <ScrollView contentContainerStyle={styles.ayaScrollContent}>
         <View style={[styles.surahContent, { backgroundColor: theme.cardBg }]}>
           <View style={styles.ayaContainer}>
@@ -302,4 +285,3 @@ const styles = StyleSheet.create({
 });
 
 export default SurahDetailScreen;
-
