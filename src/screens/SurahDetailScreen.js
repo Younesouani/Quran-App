@@ -10,28 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSurahDetails } from '../api/quranApi';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { Audio } from 'expo-av';
 
-// Convert numbers to Eastern Arabic numerals
+// تحويل الأرقام الإنجليزية إلى أرقام عربية مشرقية
 const toArabicDigits = (num) => {
   const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
   return num.toString().replace(/\d/g, (digit) => arabicDigits[digit]);
-};
-
-// Ayah number badge component
-const AyahBadge = ({ number, isDarkMode }) => {
-  return (
-    <View style={badgeStyles.badgeContainer}>
-      <Text style={[badgeStyles.badgeDecoration, { color: isDarkMode ? '#F59E0B' : '#0F9D58' }]}>
-        ۝
-      </Text>
-      <View style={badgeStyles.numberOverlay}>
-        <Text style={[badgeStyles.badgeNumber, { color: isDarkMode ? '#F8FAFC' : '#065F46' }]}>
-          {toArabicDigits(number)}
-        </Text>
-      </View>
-    </View>
-  );
 };
 
 export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
@@ -39,47 +23,18 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  
-  const playerRef = useRef(null);
 
-  // Format surah number to 3 digits (e.g. 1 -> 001)
+  const soundRef = useRef(null);
+
   const formattedSurahNumber = String(surahNumber).padStart(3, '0');
   const audioUrl = `https://server8.mp3quran.net/basit/${formattedSurahNumber}.mp3`;
 
   useEffect(() => {
-    let isMounted = true;
-
-    const initAudio = async () => {
-      try {
-        await setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-        });
-
-        // Initialize audio player with direct URI
-        const player = createAudioPlayer({ uri: audioUrl });
-        playerRef.current = player;
-
-        // Add event listeners for playback state
-        player.addListener('playbackStatusUpdate', (status) => {
-          if (!isMounted) return;
-          setIsPlaying(status.isPlaying);
-          setIsBuffering(status.isBuffering);
-        });
-      } catch (err) {
-        console.error('Audio initialization error:', err);
-      }
-    };
-
-    initAudio();
     loadSurahDetails();
 
     return () => {
-      isMounted = false;
-      if (playerRef.current) {
-        playerRef.current.release();
-        playerRef.current = null;
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
       }
     };
   }, [surahNumber]);
@@ -99,20 +54,52 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   };
 
   const playSurahAudio = async () => {
-    if (!playerRef.current) return;
-
     try {
-      if (isPlaying) {
-        playerRef.current.pause();
-      } else {
-        setIsBuffering(true);
-        playerRef.current.play();
+      // إذا كان الصوت يعمل بالفعل، نقوم بإيقافه مؤقتاً
+      if (soundRef.current && isPlaying) {
+        await soundRef.current.pauseAsync();
+        setIsPlaying(false);
+        return;
       }
+
+      // إذا كان الصوت متوقفاً مؤقتاً، نستكمل التشغيل
+      if (soundRef.current && !isPlaying) {
+        await soundRef.current.playAsync();
+        setIsPlaying(true);
+        return;
+      }
+
+      // إنشاء وتشغيل الصوت لأول مرة
+      setIsBuffering(true);
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        staysActiveInBackground: true,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true },
+        (status) => {
+          if (status.isLoaded) {
+            setIsPlaying(status.isPlaying);
+            setIsBuffering(status.isBuffering);
+            if (status.didJustFinish) {
+              setIsPlaying(false);
+            }
+          }
+        }
+      );
+
+      soundRef.current = sound;
+      setIsBuffering(false);
+      setIsPlaying(true);
     } catch (error) {
       setIsBuffering(false);
       setIsPlaying(false);
       Alert.alert('خطأ', 'تعذر تشغيل الصوت. تأكد من الاتصال بالإنترنت.');
-      console.error('Audio playback error:', error);
+      console.error('Audio Playback Error:', error);
     }
   };
 
@@ -130,7 +117,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
     return (
       <View style={[styles.center, { backgroundColor: theme.bg }]}>
         <ActivityIndicator size="large" color={theme.accent} />
-        <Text style={[styles.loadingText, { color: theme.accent }]}>جاري تحميل الآيات...</Text>
+        <Text style={[styles.loadingText, { color: theme.accent }]}>جاري تحميل السورة...</Text>
       </View>
     );
   }
@@ -148,7 +135,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header */}
+      {/* هيدر الشاشة */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={[styles.backText, { color: theme.backBtn }]}>🔙 عودة</Text>
@@ -158,7 +145,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         </Text>
       </View>
 
-      {/* Audio Card */}
+      {/* كرت مشغل الصوت */}
       <View style={[styles.audioCard, { backgroundColor: theme.cardBg }]}>
         <View style={styles.audioInfo}>
           <Text style={[styles.reciterName, { color: theme.text }]}>
@@ -171,6 +158,7 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         <TouchableOpacity
           style={[styles.playButton, { backgroundColor: theme.accent }]}
           onPress={playSurahAudio}
+          disabled={isBuffering}
         >
           {isBuffering ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
@@ -182,47 +170,24 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         </TouchableOpacity>
       </View>
 
-      {/* Verses ScrollView */}
+      {/* عرض الآيات متصلة وملء السطور */}
       <ScrollView contentContainerStyle={styles.ayaScrollContent}>
         <View style={[styles.surahContent, { backgroundColor: theme.cardBg }]}>
-          <View style={styles.ayaContainer}>
+          <Text style={[styles.quranText, { color: theme.text }]}>
             {surah.ayahs.map((ayah) => (
-              <React.Fragment key={ayah.number}>
-                <Text style={[styles.ayahText, { color: theme.text }]}>
-                  {ayah.text}
-                </Text>
-                <AyahBadge number={ayah.numberInSurah} isDarkMode={isDarkMode} />
-              </React.Fragment>
+              <Text key={ayah.number}>
+                {ayah.text}{' '}
+                <Text style={{ color: theme.accent, fontSize: 18 }}>
+                  ﴿{toArabicDigits(ayah.numberInSurah)}﴾
+                </Text>{' '}
+              </Text>
             ))}
-          </View>
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const badgeStyles = StyleSheet.create({
-  badgeContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-    width: 32,
-    height: 32,
-  },
-  badgeDecoration: {
-    fontSize: 28,
-    position: 'absolute',
-  },
-  numberOverlay: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeNumber: {
-    fontSize: 11,
-    fontWeight: 'bold',
-  },
-});
 
 const styles = StyleSheet.create({
   container: {
@@ -298,20 +263,16 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   surahContent: {
-    padding: 16,
+    padding: 18,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB11',
   },
-  ayaContainer: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-  },
-  ayahText: {
-    fontSize: 20,
-    lineHeight: 42,
-    textAlign: 'right',
+  quranText: {
+    fontSize: 22,
+    lineHeight: 46,
+    textAlign: 'justify',
+    writingDirection: 'rtl',
   },
   errorText: {
     fontSize: 16,
