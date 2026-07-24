@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSurahDetails } from '../api/quranApi';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
 // تحويل الأرقام الإنجليزية إلى أرقام عربية مشرقية (١، ٢، ٣)
 const toArabicDigits = (num) => {
@@ -38,8 +38,9 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   const [surah, setSurah] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
 
-  // تنسيق رقم السورة مع أصفار في البداية (مثلاً 1 يصبح 001)
+  // تنسيق رقم السورة مع أصفار في البداية (1 -> 001)
   const formattedSurahNumber = String(surahNumber).padStart(3, '0');
   const audioUrl = `https://server8.mp3quran.net/basit/${formattedSurahNumber}.mp3`;
 
@@ -47,7 +48,27 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
   const player = useAudioPlayer(audioUrl);
 
   useEffect(() => {
+    // تهيئة إعدادات الصوت في النظام
+    const setupAudio = async () => {
+      try {
+        await setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+        });
+      } catch (e) {
+        console.log('Audio mode setup error:', e);
+      }
+    };
+
+    setupAudio();
     loadSurahDetails();
+
+    return () => {
+      if (player) {
+        player.pause();
+      }
+    };
   }, [surahNumber]);
 
   const loadSurahDetails = async () => {
@@ -70,10 +91,14 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         player.pause();
         setIsPlaying(false);
       } else {
+        setIsBuffering(true);
         player.play();
         setIsPlaying(true);
+        setIsBuffering(false);
       }
     } catch (error) {
+      setIsBuffering(false);
+      setIsPlaying(false);
       Alert.alert('خطأ', 'تعذر تحميل الصوت. تأكد من الاتصال بالإنترنت.');
       console.error('Audio error:', error);
     }
@@ -134,10 +159,15 @@ export function SurahDetailScreen({ surahNumber, onBack, isDarkMode }) {
         <TouchableOpacity
           style={[styles.playButton, { backgroundColor: theme.accent }]}
           onPress={playSurahAudio}
+          disabled={isBuffering}
         >
-          <Text style={styles.playButtonText}>
-            {isPlaying ? '⏹️ إيقاف' : '▶️ تشغيل'}
-          </Text>
+          {isBuffering ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.playButtonText}>
+              {isPlaying ? '⏹️ إيقاف' : '▶️ تشغيل'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
